@@ -3,5 +3,5 @@ pip3 install pipenv
 pipenv install
 
 pipenv shell
-./main.py
+./main.py file.xlsx startYear
 ```

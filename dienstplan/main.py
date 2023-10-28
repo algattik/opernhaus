@@ -1,23 +1,27 @@
 #!/usr/bin/env python3
 import pandas as pd
 import sys
+from collections import defaultdict
 
 #exec(open("main.py").read())
 
-if len(sys.argv) != 4:
-    print("Usage: main.py file.xlsx startYear 'ARTIST NAME'")
+if len(sys.argv) != 3:
+    print("Usage: main.py file.xlsx startYear")
     print(sys.argv)
     exit(1)
 
-[script_name, excel_file, year, artist] = sys.argv
+[script_name, excel_file, year] = sys.argv
 
 year = int(year)
 
 
-def parse(xl, sheet_name):
+def parse(sheet_name, worksheet, artist):
     print(sheet_name)
-    worksheet = xl.parse(sheet_name, header=None)
-
+    print(sheet_name)
+    print(sheet_name)
+    print(sheet_name)
+    print(worksheet)
+    print(artist)
     calendar_week = int(worksheet.iloc[3, 0].split(' ')[1])
     season_week = int(sheet_name.split('W')[1])
     add_to_year = 1 if season_week > calendar_week else 0
@@ -37,20 +41,38 @@ def parse(xl, sheet_name):
 xl = pd.ExcelFile(excel_file)
 
 week_sheet_names = list(filter(lambda n: n.startswith('W'), xl.sheet_names))
-all_slots = pd.concat(map(lambda s: parse(xl, s), week_sheet_names))
+a = list(map(lambda w: [w, xl.parse(w, header=None)], week_sheet_names))
 
-show_days = pd.Series(all_slots.index).dt.normalize()
-cal_days = pd.date_range(show_days.min(), show_days.max())
+artist_weeks = defaultdict(list)
+for s in a:
+    week = s[0]
+    sheet = s[1]
+    for artist in sheet[sheet.isin(['D']).any(axis=1)][0]:
+        if artist:
+            artist_weeks[artist].append(week)
 
-free_days = pd.DataFrame({'day': cal_days[~cal_days.isin(show_days)]}).set_index('day')
+# artists = ['SACRAMENTO NUNES Filipa Magarida']
 
-cal = pd.concat([all_slots, free_days]).sort_index()
-cal_dates = pd.Series(cal.index).dt
+with pd.ExcelWriter('result.xlsx', engine='xlsxwriter') as writer:
 
-multilevel_cal = cal.copy()
-multilevel_cal.index = pd.MultiIndex.from_frame(pd.DataFrame({
-    'day': cal_dates.day_name().str[0:3] + ' ' + cal_dates.strftime('%d.%m.%y'),
-    'time': cal_dates.strftime('%H:%M').replace('00:00', '')
-}))
+    for artist, weeks in artist_weeks.items():
+        print(artist)
+        print(weeks)
 
-multilevel_cal.to_excel('results.xlsx')
+        all_slots = pd.concat(map(lambda s: parse(s[0], s[1], artist), filter(lambda w: w[0] in weeks, a)))
+
+        show_days = pd.Series(all_slots.index).dt.normalize()
+        cal_days = pd.date_range(show_days.min(), show_days.max())
+
+        free_days = pd.DataFrame({'day': cal_days[~cal_days.isin(show_days)]}).set_index('day')
+
+        cal = pd.concat([all_slots, free_days]).sort_index()
+        cal_dates = pd.Series(cal.index).dt
+
+        multilevel_cal = cal.copy()
+        multilevel_cal.index = pd.MultiIndex.from_frame(pd.DataFrame({
+            'day': cal_dates.day_name().str[0:3] + ' ' + cal_dates.strftime('%d.%m.%y'),
+            'time': cal_dates.strftime('%H:%M').replace('00:00', '')
+        }))
+
+        multilevel_cal.to_excel(writer, sheet_name=' '.join(artist.split()[:2]))
