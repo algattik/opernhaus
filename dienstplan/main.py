@@ -16,7 +16,7 @@ year = int(year)
 
 def parse(xl, sheet_name):
     print(sheet_name)
-    worksheet = xl.parse(sheet_name, header=None)  # read a specific worksheet to DataFrame
+    worksheet = xl.parse(sheet_name, header=None)
 
     calendar_week = int(worksheet.iloc[3, 0].split(' ')[1])
     season_week = int(sheet_name.split('W')[1])
@@ -26,8 +26,6 @@ def parse(xl, sheet_name):
     worksheet_unmerged.iloc[2] = worksheet_unmerged.iloc[2].ffill()
     worksheet_timeslots = worksheet_unmerged.dropna(axis=1, subset=3).set_index(0)
 
-    #worksheet_timeslots.iloc[2].ffill(inplace=True)
-    #e = worksheet_timeslots.set_index(0)
     time_slots = worksheet_timeslots.iloc[2] + '.' + str(year + add_to_year) + ' ' + worksheet_timeslots.iloc[3]
     worksheet_timeslots.columns = pd.to_datetime(time_slots, format="%d.%m.%Y %H.%M", exact=False)
     artist_slots = worksheet_timeslots.dropna(axis=1, subset=[artist])
@@ -49,12 +47,10 @@ free_days = pd.DataFrame({'day': cal_days[~cal_days.isin(show_days)]}).set_index
 cal = pd.concat([all_slots, free_days]).sort_index()
 cal_dates = pd.Series(cal.index).dt
 
-# cal['show'].fillna(value='FREE', inplace=True)
-
-mcal = cal.copy()
-mcal.index = pd.MultiIndex.from_frame(pd.DataFrame({
+multilevel_cal = cal.copy()
+multilevel_cal.index = pd.MultiIndex.from_frame(pd.DataFrame({
     'day': cal_dates.day_name().str[0:3] + ' ' + cal_dates.strftime('%d.%m.%y'),
     'time': cal_dates.strftime('%H:%M').replace('00:00', '')
 }))
 
-mcal.to_excel('results.xlsx')
+multilevel_cal.to_excel('results.xlsx')
