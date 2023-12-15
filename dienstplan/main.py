@@ -1,78 +1,131 @@
 #!/usr/bin/env python3
-import pandas as pd
+
 import sys
+from datetime import datetime, timedelta
+from openpyxl import load_workbook, Workbook
+from openpyxl.styles import Alignment, PatternFill, Border, Side, Font
 from collections import defaultdict
 
-#exec(open("main.py").read())
+# Global constants
+DATE_FORMAT = "%d.%m.%Y"
+COLOR1 = PatternFill(start_color="00DDFFDD", fill_type="solid")
+COLOR2 = PatternFill(start_color="00FFDDDD", fill_type="solid")
 
-if len(sys.argv) != 3:
-    print("Usage: main.py file.xlsx startYear")
+# Global styles
+THIN_BORDER = Border(top=Side(style='thin'), bottom=Side(style='thin'))
+THICK_BORDER = Border(top=Side(style='thick'), bottom=Side(style='thin'))
+BOLD_FONT = Font(bold=True)
+TOP_ALIGNMENT = Alignment(horizontal="left", vertical="top")
+
+# Workbook initialization
+output_workbook = Workbook()
+first_sheet = output_workbook.active
+
+# Utility function to iterate over days
+def iterate_days(start_date, end_date):
+    current_date = start_date
+    while current_date <= end_date:
+        yield current_date
+        current_date += timedelta(days=1)
+
+# Command-line argument handling
+sys.argv = ["main.py", "Plan neu 1.XLSX"]
+if len(sys.argv) != 2:
+    print("Usage: main.py file.xlsx")
     print(sys.argv)
     exit(1)
 
-[script_name, excel_file, year] = sys.argv
+[script_name, input_excel_file] = sys.argv
+shifts_data = defaultdict(lambda: defaultdict(dict))
+artists_data = defaultdict(int)
 
-year = int(year)
+# Load workbook
+input_workbook = load_workbook(filename=input_excel_file)
 
+# Process sheets
+for sheet in input_workbook:
+    if not sheet.title.startswith("W"):
+        continue
 
-def parse(sheet_name, worksheet, artist):
-    print(sheet_name)
-    print(sheet_name)
-    print(sheet_name)
-    print(sheet_name)
-    print(worksheet)
-    print(artist)
-    calendar_week = int(worksheet.iloc[3, 0].split(' ')[1])
-    season_week = int(sheet_name.split('W')[1])
-    add_to_year = 1 if season_week > calendar_week else 0
+    print(sheet.title)
 
-    worksheet_unmerged = worksheet.copy()
-    worksheet_unmerged.iloc[2] = worksheet_unmerged.iloc[2].ffill()
-    worksheet_timeslots = worksheet_unmerged.dropna(axis=1, subset=3).set_index(0)
+    season_info = sheet["A1"].value
+    season_year = int(season_info.split(" ")[1].split("/")[0])
 
-    time_slots = worksheet_timeslots.iloc[2] + '.' + str(year + add_to_year) + ' ' + worksheet_timeslots.iloc[3]
-    worksheet_timeslots.columns = pd.to_datetime(time_slots, format="%d.%m.%Y %H.%M", exact=False)
-    artist_slots = worksheet_timeslots.dropna(axis=1, subset=[artist])
-    slot_content = artist_slots.iloc[[4, 5]].transpose()
-    slot_content.columns = ['type', 'show']
-    return slot_content
+    calendar_week_info = sheet["A4"].value
+    calendar_week_value = int(calendar_week_info.split(" ")[1])
+    season_week = int(sheet["A6"].value)
+    if season_week > calendar_week_value:
+        season_year += 1
 
+    days_row = sheet[3]
+    hours_row = sheet[4]
+    type_row = sheet[5]
+    show_row = sheet[6]
 
-xl = pd.ExcelFile(excel_file)
+    days_cell_range = sheet['D3':'BG3'][0]
+    previous_date = None
+    artist_days = []
+    for cell in days_cell_range:
+        day_value = cell.value
+        if day_value is not None:
+            day_parts = day_value.split(" ")
+            current_date = datetime.strptime(f"{day_parts[1]}.{season_year}", DATE_FORMAT)
+            previous_date = current_date
+        artist_days.append(previous_date)
 
-week_sheet_names = list(filter(lambda n: n.startswith('W'), xl.sheet_names))
-a = list(map(lambda w: [w, xl.parse(w, header=None)], week_sheet_names))
+    for row in sheet.iter_rows(min_row=9, min_col=1, max_col=60):
+        artist_name = row[0].value
+        for cell in row:
+            if cell.value != 'D':
+                continue
+            shift_hours = str(hours_row[cell.column - 1].value)
+            shift_day = artist_days[cell.column - 4]
+            shifts_data[shift_day.isoformat()][artist_name][shift_hours] = [type_row[cell.column - 1].value, show_row[cell.column - 1].value]
+            artists_data[artist_name] += 1
 
-artist_weeks = defaultdict(list)
-for s in a:
-    week = s[0]
-    sheet = s[1]
-    for artist in sheet[sheet.isin(['D']).any(axis=1)][0]:
-        if artist:
-            artist_weeks[artist].append(week)
+min_shift_date = datetime.fromisoformat(min(shifts_data.keys()))
+max_shift_date = datetime.fromisoformat(max(shifts_data.keys()))
 
-# artists = ['SACRAMENTO NUNES Filipa Magarida']
+# Function to add a row to a worksheet
+def add_row(worksheet, row_data, fill_color):
+    worksheet.append(row_data)
+    cell = worksheet.cell(row=worksheet.max_row, column=1)
+    cell.alignment = TOP_ALIGNMENT
+    cell.fill = fill_color
 
-with pd.ExcelWriter('result.xlsx', engine='xlsxwriter') as writer:
+# Process artists and create sheets
+for artist_name in sorted(artists_data, key=lambda k: -artists_data[k]):
+    current_worksheet = output_workbook.create_sheet(title=' '.join(artist_name.split()[:2]))
+    for shift_day in iterate_days(min_shift_date, max_shift_date):
+        artist_shifts = shifts_data[shift_day.isoformat()]
+        shift_day_date = shift_day.date()
+        if artist_name not in artist_shifts:
+            add_row(current_worksheet, [shift_day_date], COLOR1)
+            continue
+        sorted_shifts = sorted(artist_shifts[artist_name])
+        for shift_hours in sorted_shifts:
+            [shift_type, show_info] = artist_shifts[artist_name][shift_hours]
+            shift_key = artist_name + shift_day.isoformat() + shift_hours
+            add_row(current_worksheet, [shift_day_date, shift_hours.replace('.', ':'), shift_type or 'VST', show_info], COLOR2)
+        if len(sorted_shifts) > 1:
+            current_worksheet.merge_cells(start_row=current_worksheet.max_row-len(sorted_shifts)+1, start_column=1, end_row=current_worksheet.max_row, end_column=1)
 
-    for artist, weeks in artist_weeks.items():
-        print(artist)
-        print(weeks)
+    for row_data in current_worksheet.iter_rows():
+        if row_data[0].value is None:
+            continue
+        shift_day_is_monday = row_data[0].value.weekday() == 0
+        for cell in row_data:
+            cell.border = THICK_BORDER if shift_day_is_monday else THIN_BORDER
+        if row_data[2].value in ['VST', 'GP', 'WA']:
+            row_data[2].font = BOLD_FONT
+            row_data[3].font = BOLD_FONT
 
-        all_slots = pd.concat(map(lambda s: parse(s[0], s[1], artist), filter(lambda w: w[0] in weeks, a)))
+    current_worksheet.column_dimensions["A"].width = 10
+    current_worksheet.column_dimensions["B"].width = 7
+    current_worksheet.column_dimensions["C"].width = 5
+    current_worksheet.column_dimensions["D"].width = 20
 
-        show_days = pd.Series(all_slots.index).dt.normalize()
-        cal_days = pd.date_range(show_days.min(), show_days.max())
-
-        free_days = pd.DataFrame({'day': cal_days[~cal_days.isin(show_days)]}).set_index('day')
-
-        cal = pd.concat([all_slots, free_days]).sort_index()
-        cal_dates = pd.Series(cal.index).dt
-
-        multilevel_cal = cal.copy()
-        multilevel_cal.index = pd.MultiIndex.from_frame(pd.DataFrame({
-            'day': cal_dates.day_name().str[0:3] + ' ' + cal_dates.strftime('%d.%m.%y'),
-            'time': cal_dates.strftime('%H:%M').replace('00:00', '')
-        }))
-
-        multilevel_cal.to_excel(writer, sheet_name=' '.join(artist.split()[:2]))
+# Save workbook
+output_workbook.remove(first_sheet)
+output_workbook.save("dienstplan.xlsx")
