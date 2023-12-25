@@ -117,7 +117,7 @@ for artist_name in sorted(artists_data, key=lambda k: -artists_data[k]):
         shift_day_is_monday = row_data[0].value.weekday() == 0
         for cell in row_data:
             cell.border = THICK_BORDER if shift_day_is_monday else THIN_BORDER
-        if row_data[2].value in ['VST', 'GP', 'WA']:
+        if row_data[2].value in ['VST', 'GP', 'WA', 'OHP']:
             row_data[2].font = BOLD_FONT
             row_data[3].font = BOLD_FONT
 
