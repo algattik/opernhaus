@@ -62,6 +62,7 @@ for sheet in input_workbook:
     hours_row = sheet[4]
     type_row = sheet[5]
     show_row = sheet[6]
+    points_row = sheet[7]
 
     days_cell_range = sheet['D3':'BG3'][0]
     previous_date = None
@@ -81,7 +82,7 @@ for sheet in input_workbook:
                 continue
             shift_hours = str(hours_row[cell.column - 1].value)
             shift_day = artist_days[cell.column - 4]
-            shifts_data[shift_day.isoformat()][artist_name][shift_hours] = [type_row[cell.column - 1].value, show_row[cell.column - 1].value]
+            shifts_data[shift_day.isoformat()][artist_name][shift_hours] = [type_row[cell.column - 1].value, show_row[cell.column - 1].value, points_row[cell.column - 1].value]
             artists_data[artist_name] += 1
 
 min_shift_date = datetime.fromisoformat(min(shifts_data.keys()))
@@ -105,9 +106,9 @@ for artist_name in sorted(artists_data, key=lambda k: -artists_data[k]):
             continue
         sorted_shifts = sorted(artist_shifts[artist_name])
         for shift_hours in sorted_shifts:
-            [shift_type, show_info] = artist_shifts[artist_name][shift_hours]
+            [shift_type, show_info, points] = artist_shifts[artist_name][shift_hours]
             shift_key = artist_name + shift_day.isoformat() + shift_hours
-            add_row(current_worksheet, [shift_day_date, shift_hours.replace('.', ':'), shift_type or 'VST', show_info], COLOR2)
+            add_row(current_worksheet, [shift_day_date, shift_hours.replace('.', ':'), shift_type or 'VST', show_info, points], COLOR2)
         if len(sorted_shifts) > 1:
             current_worksheet.merge_cells(start_row=current_worksheet.max_row-len(sorted_shifts)+1, start_column=1, end_row=current_worksheet.max_row, end_column=1)
 
