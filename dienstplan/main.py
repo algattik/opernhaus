@@ -29,7 +29,6 @@ def iterate_days(start_date, end_date):
         current_date += timedelta(days=1)
 
 # Command-line argument handling
-sys.argv = ["main.py", "Plan neu 1.XLSX"]
 if len(sys.argv) != 2:
     print("Usage: main.py file.xlsx")
     print(sys.argv)
