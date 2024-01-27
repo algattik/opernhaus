@@ -15,7 +15,7 @@ COLOR2 = PatternFill(start_color="00FFDDDD", fill_type="solid")
 THIN_BORDER = Border(top=Side(style='thin'), bottom=Side(style='thin'))
 THICK_BORDER = Border(top=Side(style='thick'), bottom=Side(style='thin'))
 BOLD_FONT = Font(bold=True)
-TOP_ALIGNMENT = Alignment(horizontal="left", vertical="top")
+TOP_ALIGNMENT = Alignment(horizontal="left", vertical="top", wrap_text=True)
 
 # Workbook initialization
 output_workbook = Workbook()
@@ -90,9 +90,11 @@ max_shift_date = datetime.fromisoformat(max(shifts_data.keys()))
 # Function to add a row to a worksheet
 def add_row(worksheet, row_data, fill_color):
     worksheet.append(row_data)
-    cell = worksheet.cell(row=worksheet.max_row, column=1)
-    cell.alignment = TOP_ALIGNMENT
-    cell.fill = fill_color
+    for coln in range(0, len(row_data)):
+        cell = worksheet.cell(row=worksheet.max_row, column=coln+1)
+        cell.alignment = TOP_ALIGNMENT
+        if coln == 0:
+            cell.fill = fill_color 
 
 # Process artists and create sheets
 for artist_name in sorted(artists_data, key=lambda k: -artists_data[k]):
@@ -104,12 +106,29 @@ for artist_name in sorted(artists_data, key=lambda k: -artists_data[k]):
             add_row(current_worksheet, [shift_day_date], COLOR1)
             continue
         sorted_shifts = sorted(artist_shifts[artist_name])
+
+        row_hours = []
+        row_types = []
+        row_info = []
+        row_points = 0
         for shift_hours in sorted_shifts:
             [shift_type, show_info, points] = artist_shifts[artist_name][shift_hours]
-            shift_key = artist_name + shift_day.isoformat() + shift_hours
-            add_row(current_worksheet, [shift_day_date, shift_hours.replace('.', ':'), shift_type or 'VST', show_info, points], COLOR2)
-        if len(sorted_shifts) > 1:
-            current_worksheet.merge_cells(start_row=current_worksheet.max_row-len(sorted_shifts)+1, start_column=1, end_row=current_worksheet.max_row, end_column=1)
+            row_hours.append(shift_hours.replace('.', ':'))
+            row_types.append(shift_type or 'VST')
+            row_info.append(show_info or '')
+            if points:
+                row_points += points
+
+        def merge(row_data):
+            return '\n'.join(row_data)
+
+        add_row(current_worksheet, [shift_day_date, merge(row_hours), merge(row_types), merge(row_info), row_points], COLOR2)
+
+    def contains_substring(input_string, substrings):
+        for substring in substrings:
+            if substring in input_string:
+                return True
+        return False
 
     for row_data in current_worksheet.iter_rows():
         if row_data[0].value is None:
@@ -117,7 +136,7 @@ for artist_name in sorted(artists_data, key=lambda k: -artists_data[k]):
         shift_day_is_monday = row_data[0].value.weekday() == 0
         for cell in row_data:
             cell.border = THICK_BORDER if shift_day_is_monday else THIN_BORDER
-        if row_data[2].value in ['VST', 'GP', 'WA', 'OHP']:
+        if contains_substring(row_data[2].value or '', ['VST', 'GP', 'WA', 'OHP']):
             row_data[2].font = BOLD_FONT
             row_data[3].font = BOLD_FONT
 
