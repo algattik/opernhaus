@@ -97,9 +97,9 @@ def add_row(worksheet, row_data, fill_color):
             cell.fill = fill_color 
 
 # Process artists and create sheets
-for artist_name in sorted(artists_data, key=lambda k: -artists_data[k]):
+for artist_name in sorted(artists_data, key=lambda k: -len(k)):
     current_worksheet = output_workbook.create_sheet(title=' '.join(artist_name.split()[:2]))
-    for shift_day in iterate_days(min_shift_date, max_shift_date):
+    for shift_day in iterate_days(min_shift_date, max_shift_date + timedelta(days=90)):
         artist_shifts = shifts_data[shift_day.isoformat()]
         shift_day_date = shift_day.date()
         if artist_name not in artist_shifts:
