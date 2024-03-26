@@ -77,7 +77,7 @@ for sheet in input_workbook:
     for row in sheet.iter_rows(min_row=9, min_col=1, max_col=60):
         artist_name = row[0].value
         for cell in row:
-            if cell.value != 'D':
+            if cell.value not in ['D', 'DK', 'E', 'EK']: #D = Dienst, DK = Dienst Krank, #E = Ersatz, EK = Ersatz Krank. F = Fiktive Dienst (not for planning)
                 continue
             shift_hours = str(hours_row[cell.column - 1].value)
             shift_day = artist_days[cell.column - 4]
@@ -94,7 +94,7 @@ def add_row(worksheet, row_data, fill_color):
         cell = worksheet.cell(row=worksheet.max_row, column=coln+1)
         cell.alignment = TOP_ALIGNMENT
         if coln == 0:
-            cell.fill = fill_color 
+            cell.fill = fill_color
 
 # Process artists and create sheets
 for artist_name in sorted(artists_data, key=lambda k: -len(k)):
@@ -136,7 +136,7 @@ for artist_name in sorted(artists_data, key=lambda k: -len(k)):
         shift_day_is_monday = row_data[0].value.weekday() == 0
         for cell in row_data:
             cell.border = THICK_BORDER if shift_day_is_monday else THIN_BORDER
-        if contains_substring(row_data[2].value or '', ['VST', 'GP', 'WA', 'OHP']):
+        if contains_substring(row_data[2].value or '', ['VST', 'GP', 'WA', 'OHP', 'Pr-A', 'Pr-B']):
             row_data[2].font = BOLD_FONT
             row_data[3].font = BOLD_FONT
 
