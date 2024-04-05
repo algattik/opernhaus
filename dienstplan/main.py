@@ -7,6 +7,7 @@ from openpyxl import load_workbook, Workbook
 from openpyxl.styles import Alignment, PatternFill, Border, Side, Font
 from collections import defaultdict
 from ics import Calendar, Event
+import pytz
 import uuid
 
 
@@ -15,6 +16,7 @@ UUID_NAMESPACE = uuid.UUID('B87533E8-8A42-43BD-B60C-7E97EA456009')
 DATE_FORMAT = "%d.%m.%Y"
 COLOR1 = PatternFill(start_color="00DDFFDD", fill_type="solid")
 COLOR2 = PatternFill(start_color="00FFDDDD", fill_type="solid")
+TIMEZONE = pytz.timezone('Europe/Zurich')
 
 # Global styles
 THIN_BORDER = Border(top=Side(style='thin'), bottom=Side(style='thin'))
@@ -156,8 +158,8 @@ for artist_name in artist_names:
             duration = dienst_duration(show_info, points)
             if duration is None:
                 continue
-            shift_start = datetime.strptime(f"{date1} {hour1}", "%Y-%m-%d %H.%M")
-            shift_end = shift_start + timedelta(hours=2)
+            shift_start = datetime.strptime(f"{date1} {hour1}", "%Y-%m-%d %H.%M").replace(tzinfo=TIMEZONE)
+            shift_end = shift_start + duration
 
             other_artists = [a for a in artist_names if a != artist_name and shift_hours in shifts[a]]
 
