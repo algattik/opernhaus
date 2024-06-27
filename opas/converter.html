@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Opas Data to Calendar Converter</title>
+    <link rel="stylesheet" href="https://cdn.simplecss.org/simple.min.css">
+</head>
+<body>
+    <header>
+        <h1>Opas data to Calendar converter</h1>
+    </header>
+    <main>
+        <section>
+            <p>Instructions:</p>
+            <ol>
+                <li>Open <a href="https://ohz.opas-online.com" target="_blank">Opas</a> and log in.</li>
+                <li>Open the <a href="https://ohz.opas-online.com/calendar.php?&start=2024-08-01&end=2025-07-31" target="_blank">2024-2025</a> season data. (For other time ranges, adjust the dates appearing in the URL).</li>
+                <li>If <code>"unlogged"</code> is displayed, go back to step 1 to log in.</li>
+                <li>This displays technical data in the browser. Copy all the data shown (Ctrl-A, Ctrl-C on PC; Command-A, Command-C on Mac) and paste it in the box below.</li>
+                <li>Click the button to generate the calendar file.</li>
+            </ol>
+        </section>
+        <section>
+            <textarea id="jsonInput" rows="10" style="width:100%;" placeholder="Paste JSON data here..."></textarea>
+            <button onclick="convertToICS()">Generate Calendar File</button>
+        </section>
+    </main>
+    <script>
+        function escapeICS(text) {
+            return text.replace(/\\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
+        }
+
+        function convertToICS() {
+            const input = document.getElementById('jsonInput').value;
+            let data;
+            try {
+                data = JSON.parse(input);
+            } catch (e) {
+                alert('Invalid JSON');
+                return;
+            }
+
+            const events = data.filter(event => event.backgroundColor === "#c0fdac");
+            let icsContent = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\n";
+
+            events.forEach(event => {
+                const start = new Date(event.start);
+                const end = new Date(event.end);
+                const dtStart = start.toISOString().replace(/-|:|\.\d+/g, '');
+                const dtEnd = end.toISOString().replace(/-|:|\.\d+/g, '');
+                const summary = escapeICS(event.title.replace(/\n/g, ': '));
+                const uid = `opas-${event.date_id}`;
+
+                icsContent += "BEGIN:VEVENT\r\n";
+                icsContent += `DTSTART:${dtStart}\r\n`;
+                icsContent += `DTEND:${dtEnd}\r\n`;
+                icsContent += `SUMMARY:${summary}\r\n`;
+                icsContent += `UID:${uid}\r\n`;
+                icsContent += "END:VEVENT\r\n";
+            });
+
+            icsContent += "END:VCALENDAR";
+
+            const blob = new Blob([icsContent], { type: 'text/calendar' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'calendar.ics';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
