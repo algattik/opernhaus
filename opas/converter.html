@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Opas Data to Calendar Converter</title>
     <link rel="stylesheet" href="https://cdn.simplecss.org/simple.min.css">
-    <script src="https://cdn.sheetjs.com/xlsx-0.18.5/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.min.js"></script>
 </head>
 <body>
     <h1>Opas Data to Calendar Converter</h1>
@@ -47,10 +47,36 @@
             // Excel file generation
             const workbook = XLSX.utils.book_new();
             const worksheetData = [];
-            const dates = new Set(events.map(event => event.start.split(' ')[0]));
-            const sortedDates = Array.from(dates).sort();
 
-            sortedDates.forEach(date => {
+            // Helper function to get the list of dates between two dates
+            function getDatesInRange(startDate, endDate) {
+                const dates = [];
+                let currentDate = new Date(startDate);
+                while (currentDate <= endDate) {
+                    dates.push(new Date(currentDate));
+                    currentDate.setDate(currentDate.getDate() + 1);
+                }
+                return dates;
+            }
+
+            // Convert date object to YYYY-MM-DD string
+            function formatDate(date) {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+
+
+            const eventDates = new Set(events.map(event => event.start.split(' ')[0]));
+            const sortedEventDates = Array.from(eventDates).sort();
+
+            const firstEventDate = new Date(sortedEventDates[0]);
+            const lastEventDate = new Date(sortedEventDates[sortedEventDates.length - 1]);
+            const allDates = getDatesInRange(firstEventDate, lastEventDate);
+
+            allDates.forEach(dateObj => {
+                const date = formatDate(dateObj);
                 const dayEvents = events.filter(event => event.start.split(' ')[0] === date);
                 const row = [
                     date,
@@ -64,10 +90,52 @@
 
             const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
 
+            // Set column widths
+            worksheet['!cols'] = [
+                { wch: 10 },  // Width of the first column
+                { wch: 5 },  // Width of the second column
+                { wch: 5 }, 
+                { wch: 8 },
+                { wch: 30 },
+            ];
+
             // Set cell background colors
-            worksheetData.forEach((row, index) => {
-                const cell = XLSX.utils.encode_cell({ r: index, c: 0 });
-                worksheet[cell].s = { fill: { fgColor: { rgb: row[1] ? "00FFDDDD" : "00DDFFDD" } } };
+            worksheetData.forEach((row, rowIndex) => {
+                row.forEach((cellValue, colIndex) => {
+                    const cellAddress = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
+                    worksheet[cellAddress].s = {
+                        alignment: {
+                            wrapText: true,  // Enable text wrapping
+                            vertical: 'top'  // Align text to the top
+                        }
+                    };
+
+                    if (row.length > 4 && (
+                        row[3].includes('VST')
+                        || row[3].includes('GP')
+                        || row[3].includes('WA')
+                        || row[3].includes('OHP')
+                        || row[3].includes('Pr-A')
+                        || row[3].includes('Pr-B')
+                    )) {
+                        worksheet[cellAddress].s.font = { bold: true };
+                    }
+                });
+                const cellRef = XLSX.utils.encode_cell({ r: rowIndex, c: 0 });
+                const cell = worksheet[cellRef];
+                cell.s.fill = { fgColor: { rgb: row[1] ? "00FFDDDD" : "00DDFFDD" }};
+
+                let dateValue;
+                if (!isNaN(Date.parse(row[0]))) {
+                    dateValue = new Date(row[0]);
+                }
+                const sunday = dateValue && dateValue.getDay() === 0;
+                row.forEach((cellValue, colIndex) => {
+                    const cellAddress = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
+                    worksheet[cellAddress].s.border = {
+                        bottom: { style: sunday ? 'thick' : 'thin' }
+                    };
+                });
             });
 
             XLSX.utils.book_append_sheet(workbook, worksheet, "Calendar");
