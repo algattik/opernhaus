@@ -1,8 +1,8 @@
-Create a javascript embedded in a web page that converts JSON to an ics file.
+Create a javascript embedded in a web page that converts JSON to an ics file and an Excel file.
 
 Respond with the actual HTML and JavaScript code and nothing else. Do not provide explanations.
 
-The user should open the webpage, paste the JSON in a textarea, and press a button. That should produce an ics file that the user can open in a calendar application.
+The user should open the webpage, paste the JSON in a textarea, and press a button. That should produce an ics file that the user can open in a calendar application, and an Excel file.
 
 The input JSON looks like this:
 
@@ -56,11 +56,27 @@ The input JSON looks like this:
         "duties": "1.00",
         "end": "2024-09-02 21:30:00"
     },
+    {
+        "date_id": 19194,
+        "title": "OA 1\nSIMON BOCCANEGRA",
+        "start": "2024-09-04 10:00:00",
+        "textColor": "#505050",
+        "backgroundColor": "#c0fdac",
+        "borderColor": "#D00E00",
+        "allDay": false,
+        "tooltip": "SIMON BOCCANEGRA\nOA 1 (D:1)\nPaolo Arrivabeni, Dirigent\nPhilharmonia Z\u00fcrich\n\nVerdi, SIMON\n2[1, Pic] 2[1, 2] 2[1, 2\/BKl] 2[1, 2] - 4[1, 2, 3, 4] 2[1, 2] 3[1, 2, 3] 1[Cimb] - Pk 2-Sz Hrf - 10 8 6 5 4\nmax. 2 2 2 2 - 4 2 3 1 - Pk 2-Sz Hrf - 10 8 6 5 4",
+        "holiday": "",
+        "holiday_bg": "",
+        "holiday_color": "",
+        "planninglevel": "1",
+        "duties": "1.00",
+        "end": "2024-09-04 12:30:00"
+    },
 ```
 
 Only items with "backgroundColor": "#c0fdac" should be used from the JSON.
 
-The resulting file should look like this:
+The resulting ics file should look like this:
 
 ```
 BEGIN:VCALENDAR
@@ -77,6 +93,12 @@ DTEND:20240902T193000Z
 SUMMARY:OA 2: ARIADNE
 UID:opas-19191
 END:VEVENT
+BEGIN:VEVENT
+DTSTART:20240904T080000Z
+DTEND:20240904T103000Z
+SUMMARY:OA 1: SIMON BOCCANEGRA
+UID:opas-19194
+END:VEVENT
 END:VCALENDAR
 ```
 
@@ -85,6 +107,17 @@ Do not forget the BEGIN:VCALENDAR and END:VCALENDAR lines.
 Make sure to escape any special characters in the text. However, do not escape the newlines that terminate lines of the ics file.
 
 Ensure the output is a valid ics file compatible with calendar programs.
+
+The resulting Excel file should look like this (| is used to separate columns):
+
+```
+2024-09-02|10:00\n19:00|12:30\n21:30|OA 1\nOA 2|ARIADNE\nARIADNE
+2024-09-03||||
+2024-09-04|10:00|12:30|OA 1|SIMON BOCCANEGRA
+```
+
+The Excel file should have exactly one line per calendar day. If more than one event occurs during the day, their information should be merged with newlines in the same cell. If no event is on the given day, a line for the day should appear in the Excel file anyway. In the Excel file, times should be shown with hours and minutes, not seconds.
+In the Excel file, the date cell background color should be RGBA 00DDFFDD if no event occurs, 00FFDDDD otherwise.
 
 In the JavaScript code, ensure that if a function returns a promise, we need to wait for the promise to resolve before using its value in a string.
 
@@ -98,7 +131,7 @@ Instructions:
 1. Open the [2024-2025](https://ohz.opas-online.com/calendar.php?&start=2024-08-01&end=2025-07-31) season data. (For other time ranges, adjust the dates appearing in the URL).
 1. If `"unlogged"` is displayed, go back to step 1 to log in.
 1. This displays technical data in the browser. Copy all the data shown (Ctrl-A, Ctrl-C on PC; Command-A, Command-C on Mac) and paste it in the box below.
-1. Click the button to generate the calendar file.
+1. Click the button to generate the calendar and Excel files.
 ```
 
-The web page should use Simple.css for styling.
+The web page should use Simple.css from https://cdn.simplecss.org/simple.min.css for styling.
