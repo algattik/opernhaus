@@ -12,7 +12,8 @@
     <p>Instructions:</p>
     <ol>
         <li>Open <a href="https://ohz.opas-online.com" target="_blank">Opas</a> and log in.</li>
-        <li>Open the <a href="https://ohz.opas-online.com/calendar.php?&start=2024-08-01&end=2025-07-31" target="_blank">2024-2025</a> season data. (For other time ranges, adjust the dates appearing in the URL).</li>
+        <li>Navigate to `Kalendar` and then select the option `meine Termine`.</li>
+        <li>Open the <a href="https://ohz.opas-online.com/calendar.php?&start=2024-08-01&end=2025-07-31&color_set=dutytype" target="_blank">2024-2025</a> season data. (For other time ranges, adjust the dates appearing in the URL).</li>
         <li>If "unlogged" is displayed, go back to step 1 to log in.</li>
         <li>This displays technical data in the browser. Copy all the data shown (Ctrl-A, Ctrl-C on PC; Command-A, Command-C on Mac) and paste it in the box below.</li>
         <li>Click the button to generate the calendar and Excel files.</li>
@@ -25,6 +26,10 @@
     <a id="excelDownloadLink" download="calendar.xlsx">Download Calendar (.xlsx)</a>
 
     <script>
+        const COL_WEEK = 0;
+        const COL_DAY = 1;
+        const COL_TYPE = 4;
+
         function generateFiles() {
             const jsonInput = document.getElementById('jsonInput').value;
             const events = JSON.parse(jsonInput).filter(event => event.backgroundColor === "#c0fdac");
@@ -67,18 +72,36 @@
                 return `${year}-${month}-${day}`;
             }
 
+            function formatWeekDay(date) {
+                const day = date.getDay() === 0 ? 7 : date.getDay();
+                const thursdayOfCurrentWeek = new Date(date);
+                thursdayOfCurrentWeek.setDate(date.getDate() + (4 - day));
+                const firstDayOfYear = new Date(thursdayOfCurrentWeek.getFullYear(), 0, 1);
+                const weekNumber = Math.ceil((((thursdayOfCurrentWeek - firstDayOfYear) / 86400000) + firstDayOfYear.getDay() + 1) / 7);
+                return `${weekNumber}.${day}`;
+            }
 
             const eventDates = new Set(events.map(event => event.start.split(' ')[0]));
             const sortedEventDates = Array.from(eventDates).sort();
 
-            const firstEventDate = new Date(sortedEventDates[0]);
-            const lastEventDate = new Date(sortedEventDates[sortedEventDates.length - 1]);
-            const allDates = getDatesInRange(firstEventDate, lastEventDate);
+            const firstDate = new Date(sortedEventDates[0]);
+            const dayOfWeek = firstDate.getDay();
+            const daysSinceMonday = (dayOfWeek === 0 ? 6 : dayOfWeek - 1);
+            firstDate.setDate(firstDate.getDate() - daysSinceMonday);
+
+            const lastDate = new Date(sortedEventDates[sortedEventDates.length - 1]);
+            lastDate.setDate(lastDate.getDate() + 60);
+            const daysUntilSunday = 7 - lastDate.getDay();
+            lastDate.setDate(lastDate.getDate() + daysUntilSunday + 1);
+
+            const allDates = getDatesInRange(firstDate, lastDate);
 
             allDates.forEach(dateObj => {
+                const week = formatWeekDay(dateObj);
                 const date = formatDate(dateObj);
                 const dayEvents = events.filter(event => event.start.split(' ')[0] === date);
                 const row = [
+                    week,
                     date,
                     dayEvents.map(event => event.start.split(' ')[1].slice(0, -3)).join('\n'),
                     dayEvents.map(event => event.end.split(' ')[1].slice(0, -3)).join('\n'),
@@ -92,8 +115,9 @@
 
             // Set column widths
             worksheet['!cols'] = [
-                { wch: 10 },  // Width of the first column
-                { wch: 5 },  // Width of the second column
+                { wch: 2.5 },
+                { wch: 10 },
+                { wch: 5 },
                 { wch: 5 }, 
                 { wch: 8 },
                 { wch: 30 },
@@ -110,30 +134,36 @@
                         }
                     };
 
-                    if (row.length > 4 && (
-                        row[3].includes('VST')
-                        || row[3].includes('GP')
-                        || row[3].includes('WA')
-                        || row[3].includes('OHP')
-                        || row[3].includes('Pr-A')
-                        || row[3].includes('Pr-B')
+                    if (row.length > COL_TYPE+1 && (
+                        row[COL_TYPE].includes('VST')
+                        || row[COL_TYPE].includes('GP')
+                        || row[COL_TYPE].includes('WA')
+                        || row[COL_TYPE].includes('OHP')
+                        || row[COL_TYPE].includes('Pr-A')
+                        || row[COL_TYPE].includes('Pr-B')
+                        || row[COL_TYPE].includes('PREM A')
+                        || row[COL_TYPE].includes('PREM B')
                     )) {
                         worksheet[cellAddress].s.font = { bold: true };
                     }
                 });
-                const cellRef = XLSX.utils.encode_cell({ r: rowIndex, c: 0 });
-                const cell = worksheet[cellRef];
-                cell.s.fill = { fgColor: { rgb: row[1] ? "00FFDDDD" : "00DDFFDD" }};
+                const weekCell = XLSX.utils.encode_cell({ r: rowIndex, c: COL_WEEK });
+                worksheet[weekCell].s.font = { sz: 7 };
+
+                const dayCell = XLSX.utils.encode_cell({ r: rowIndex, c: COL_DAY });
+                const cell = worksheet[dayCell];
+                cell.s.fill = { fgColor: { rgb: row[2] ? "00FFDDDD" : "00DDFFDD" }};
 
                 let dateValue;
-                if (!isNaN(Date.parse(row[0]))) {
-                    dateValue = new Date(row[0]);
+                if (!isNaN(Date.parse(row[COL_DAY]))) {
+                    dateValue = new Date(row[COL_DAY]);
                 }
                 const sunday = dateValue && dateValue.getDay() === 0;
+                const friday = dateValue && dateValue.getDay() === 5;
                 row.forEach((cellValue, colIndex) => {
                     const cellAddress = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
                     worksheet[cellAddress].s.border = {
-                        bottom: { style: sunday ? 'thick' : 'thin' }
+                        bottom: { style: sunday ? 'thick' : friday ? 'medium' : 'thin' }
                     };
                 });
             });
