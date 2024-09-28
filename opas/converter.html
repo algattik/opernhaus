@@ -64,14 +64,6 @@
                 return dates;
             }
 
-            // Convert date object to YYYY-MM-DD string
-            function formatDate(date) {
-                const year = date.getFullYear();
-                const month = String(date.getMonth() + 1).padStart(2, '0');
-                const day = String(date.getDate()).padStart(2, '0');
-                return `${year}-${month}-${day}`;
-            }
-
             function formatWeekDay(date) {
                 const day = date.getDay() === 0 ? 7 : date.getDay();
                 const thursdayOfCurrentWeek = new Date(date);
@@ -98,11 +90,10 @@
 
             allDates.forEach(dateObj => {
                 const week = formatWeekDay(dateObj);
-                const date = formatDate(dateObj);
-                const dayEvents = events.filter(event => event.start.split(' ')[0] === date);
+                const dayEvents = events.filter(event => event.start.split(' ')[0] === dateObj.toISOString().split('T')[0]);
                 const row = [
                     week,
-                    date,
+                    dateObj, // Keep this as a Date object to ensure it is treated as a date
                     dayEvents.map(event => event.start.split(' ')[1].slice(0, -3)).join('\n'),
                     dayEvents.map(event => event.end.split(' ')[1].slice(0, -3)).join('\n'),
                     dayEvents.map(event => event.title.split('\n')[0]).join('\n'),
@@ -123,17 +114,28 @@
                 { wch: 30 },
             ];
 
-            // Set cell background colors
+            // Set cell formatting for the date column (index 1)
+            worksheetData.forEach((_, rowIndex) => {
+                const dateCellAddress = XLSX.utils.encode_cell({ r: rowIndex, c: 1 });
+                if (worksheet[dateCellAddress]) {
+                    worksheet[dateCellAddress].z = 'yyyy-mm-dd'; // Set the date format as 'YYYY-MM-DD'
+                }
+            });
+
+            // Set additional cell styles (e.g., borders, fonts)
             worksheetData.forEach((row, rowIndex) => {
                 row.forEach((cellValue, colIndex) => {
                     const cellAddress = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
+                    if (!worksheet[cellAddress]) return;
+
                     worksheet[cellAddress].s = {
                         alignment: {
-                            wrapText: true,  // Enable text wrapping
-                            vertical: 'top'  // Align text to the top
+                            wrapText: true,
+                            vertical: 'top'
                         }
                     };
 
+                    // Apply specific formatting rules based on event types
                     if (row.length > COL_TYPE+1 && (
                         row[COL_TYPE].includes('VST')
                         || row[COL_TYPE].includes('GP')
@@ -147,6 +149,8 @@
                         worksheet[cellAddress].s.font = { bold: true };
                     }
                 });
+
+                // Specific formatting for week and day cells
                 const weekCell = XLSX.utils.encode_cell({ r: rowIndex, c: COL_WEEK });
                 worksheet[weekCell].s.font = { sz: 7 };
 
