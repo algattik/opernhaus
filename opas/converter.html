@@ -64,14 +64,6 @@
                 return dates;
             }
 
-            // Convert date object to YYYY-MM-DD string
-            function formatDate(date) {
-                const year = date.getFullYear();
-                const month = String(date.getMonth() + 1).padStart(2, '0');
-                const day = String(date.getDate()).padStart(2, '0');
-                return `${year}-${month}-${day}`;
-            }
-
             function formatWeekDay(date) {
                 const day = date.getDay() === 0 ? 7 : date.getDay();
                 const thursdayOfCurrentWeek = new Date(date);
@@ -79,6 +71,11 @@
                 const firstDayOfYear = new Date(thursdayOfCurrentWeek.getFullYear(), 0, 1);
                 const weekNumber = Math.ceil((((thursdayOfCurrentWeek - firstDayOfYear) / 86400000) + firstDayOfYear.getDay() + 1) / 7);
                 return `${weekNumber}.${day}`;
+            }
+
+            // Function to convert JavaScript Date to Excel serial date
+            function excelDate(dateObj) {
+                return Math.floor((dateObj - new Date(Date.UTC(1899, 11, 30))) / (1000 * 60 * 60 * 24));
             }
 
             const eventDates = new Set(events.map(event => event.start.split(' ')[0]));
@@ -98,11 +95,11 @@
 
             allDates.forEach(dateObj => {
                 const week = formatWeekDay(dateObj);
-                const date = formatDate(dateObj);
-                const dayEvents = events.filter(event => event.start.split(' ')[0] === date);
+                const serialDate = excelDate(dateObj); // Convert date to Excel serial date
+                const dayEvents = events.filter(event => event.start.split(' ')[0] === dateObj.toISOString().split('T')[0]);
                 const row = [
                     week,
-                    date,
+                    serialDate, // Use Excel serial date format
                     dayEvents.map(event => event.start.split(' ')[1].slice(0, -3)).join('\n'),
                     dayEvents.map(event => event.end.split(' ')[1].slice(0, -3)).join('\n'),
                     dayEvents.map(event => event.title.split('\n')[0]).join('\n'),
@@ -123,17 +120,29 @@
                 { wch: 30 },
             ];
 
-            // Set cell background colors
+            // Set cell formatting for the date column (index 1)
+            worksheetData.forEach((_, rowIndex) => {
+                const dateCellAddress = XLSX.utils.encode_cell({ r: rowIndex, c: 1 });
+                if (worksheet[dateCellAddress]) {
+                    worksheet[dateCellAddress].t = 'n'; // Set the cell type to 'n' for number
+                    worksheet[dateCellAddress].z = 'yyyy-mm-dd'; // Set the date format as 'YYYY-MM-DD'
+                }
+            });
+
+            // Set additional cell styles (e.g., borders, fonts)
             worksheetData.forEach((row, rowIndex) => {
                 row.forEach((cellValue, colIndex) => {
                     const cellAddress = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
+                    if (!worksheet[cellAddress]) return;
+
                     worksheet[cellAddress].s = {
                         alignment: {
-                            wrapText: true,  // Enable text wrapping
-                            vertical: 'top'  // Align text to the top
+                            wrapText: true,
+                            vertical: 'top'
                         }
                     };
 
+                    // Apply specific formatting rules based on event types
                     if (row.length > COL_TYPE+1 && (
                         row[COL_TYPE].includes('VST')
                         || row[COL_TYPE].includes('GP')
@@ -147,6 +156,8 @@
                         worksheet[cellAddress].s.font = { bold: true };
                     }
                 });
+
+                // Specific formatting for week and day cells
                 const weekCell = XLSX.utils.encode_cell({ r: rowIndex, c: COL_WEEK });
                 worksheet[weekCell].s.font = { sz: 7 };
 
@@ -154,10 +165,7 @@
                 const cell = worksheet[dayCell];
                 cell.s.fill = { fgColor: { rgb: row[2] ? "00FFDDDD" : "00DDFFDD" }};
 
-                let dateValue;
-                if (!isNaN(Date.parse(row[COL_DAY]))) {
-                    dateValue = new Date(row[COL_DAY]);
-                }
+                let dateValue = new Date(Date.UTC(1899, 11, 30) + row[COL_DAY] * 24 * 60 * 60 * 1000);
                 const sunday = dateValue && dateValue.getDay() === 0;
                 const friday = dateValue && dateValue.getDay() === 5;
                 row.forEach((cellValue, colIndex) => {
