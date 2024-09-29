@@ -73,6 +73,11 @@
                 return `${weekNumber}.${day}`;
             }
 
+            // Function to convert JavaScript Date to Excel serial date
+            function excelDate(dateObj) {
+                return Math.floor((dateObj - new Date(Date.UTC(1899, 11, 30))) / (1000 * 60 * 60 * 24));
+            }
+
             const eventDates = new Set(events.map(event => event.start.split(' ')[0]));
             const sortedEventDates = Array.from(eventDates).sort();
 
@@ -90,10 +95,11 @@
 
             allDates.forEach(dateObj => {
                 const week = formatWeekDay(dateObj);
+                const serialDate = excelDate(dateObj); // Convert date to Excel serial date
                 const dayEvents = events.filter(event => event.start.split(' ')[0] === dateObj.toISOString().split('T')[0]);
                 const row = [
                     week,
-                    dateObj, // Keep this as a Date object to ensure it is treated as a date
+                    serialDate, // Use Excel serial date format
                     dayEvents.map(event => event.start.split(' ')[1].slice(0, -3)).join('\n'),
                     dayEvents.map(event => event.end.split(' ')[1].slice(0, -3)).join('\n'),
                     dayEvents.map(event => event.title.split('\n')[0]).join('\n'),
@@ -118,6 +124,7 @@
             worksheetData.forEach((_, rowIndex) => {
                 const dateCellAddress = XLSX.utils.encode_cell({ r: rowIndex, c: 1 });
                 if (worksheet[dateCellAddress]) {
+                    worksheet[dateCellAddress].t = 'n'; // Set the cell type to 'n' for number
                     worksheet[dateCellAddress].z = 'yyyy-mm-dd'; // Set the date format as 'YYYY-MM-DD'
                 }
             });
@@ -158,10 +165,7 @@
                 const cell = worksheet[dayCell];
                 cell.s.fill = { fgColor: { rgb: row[2] ? "00FFDDDD" : "00DDFFDD" }};
 
-                let dateValue;
-                if (!isNaN(Date.parse(row[COL_DAY]))) {
-                    dateValue = new Date(row[COL_DAY]);
-                }
+                let dateValue = new Date(Date.UTC(1899, 11, 30) + row[COL_DAY] * 24 * 60 * 60 * 1000);
                 const sunday = dateValue && dateValue.getDay() === 0;
                 const friday = dateValue && dateValue.getDay() === 5;
                 row.forEach((cellValue, colIndex) => {
