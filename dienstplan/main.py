@@ -56,7 +56,7 @@ def parse_hour(shift_hours):
         return shift_hours
     return f'{shift_hours}.00'
 
-def dienst_duration(show_info, points):
+def dienst_duration(show_info, points, shift_day):
     if show_info == "für den DPE":
         return None
     if show_info == "vom Haus":
@@ -65,7 +65,9 @@ def dienst_duration(show_info, points):
         return timedelta(days=11)
     if show_info == "SUVA":
         return None
-    if show_info == '' and points is None:
+    if points is None:
+        return None
+    if show_info == 'N.N.' and points == 0.5:
         return None
     if points == 1:
         return timedelta(hours=3, minutes=15)
@@ -77,7 +79,9 @@ def dienst_duration(show_info, points):
         return timedelta(hours=6)
     if points == 3:
         return timedelta(hours=6, minutes=30)
-    raise ValueError(f"Invalid points value: {points}")
+    if points == 5:
+        return timedelta(hours=6, minutes=30)
+    raise ValueError(f"Invalid points value: {points} for {shift_day}: {show_info}")
 
 # Command-line argument handling
 if len(sys.argv) != 2:
@@ -141,7 +145,8 @@ for sheet in input_workbook:
                 points_row[cell.column - 1].value,
                 cell.column
                 ]
-            artist_names.add(artist_name)
+            if artist_name is not None:
+              artist_names.add(artist_name)
 
 # Process artists and create calendar files
 for artist_name in artist_names:
@@ -155,13 +160,13 @@ for artist_name in artist_names:
             [shift_type, show_info, points, column] = artist_shifts[shift_hours]
             date1 = shift_day.split('T')[0]
             hour1 = parse_hour(shift_hours)
-            duration = dienst_duration(show_info, points)
+            duration = dienst_duration(show_info, points, shift_day)
             if duration is None:
                 continue
             shift_start = datetime.strptime(f"{date1} {hour1}", "%Y-%m-%d %H.%M").replace(tzinfo=TIMEZONE)
             shift_end = shift_start + duration
 
-            other_artists = [a for a in artist_names if a != artist_name and shift_hours in shifts[a]]
+            other_artists = [a for a in artist_names if a != artist_name and a is not None and shift_hours in shifts[a]]
 
             e = Event()
             e.uid = str(uuid.uuid5(UUID_NAMESPACE, f"{artist_name}-{shift_day}-{column}"))
